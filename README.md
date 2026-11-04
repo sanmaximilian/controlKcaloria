@@ -1,2 +1,3 @@
 # controlKcaloria
 control de calorias ingeridas cuando uno esta fuera de la casa, para sumar si uno come un tentempie o algo que sume una caloria y que luego uno las pueda sumar a la cuenta total diaria de calorias, esto es con un ejemplo de 2000 kcal
+es bueno para visitarlo desde el celular cuando uno no este en la casa para sumar calorias de los alimentos ingeridos para no olvidarse y controlar. al tener guardado dentro del mismo dispositivo (localStorge) se piensa en añadir edicion y luego por ahi crossplataform entre dispositivos de un mismo usuario (al ser localstorage no se cruzan los datos entre usuarios)
