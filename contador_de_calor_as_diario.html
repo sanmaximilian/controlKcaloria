@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Calorías Diario</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Smooth transitions */
+        .transition-all-custom {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        /* Custom scrollbar for log list */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.15);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0,0,0,0.25);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-full flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20">
+                    <i class="fa-solid font-bold fa-fire text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-900 leading-tight">CalorieTracker</h1>
+                    <p class="text-xs text-slate-500">Registro Diario de Ingesta</p>
+                </div>
+            </div>
+
+            <!-- Global Action / Date badge -->
+            <div id="current-date-badge" class="hidden sm:flex items-center gap-2 bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-200">
+                <i class="fa-regular fa-calendar"></i>
+                <span id="header-date">--/--/----</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-4xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+
+        <!-- DASHBOARD SECTION: Summary & Target -->
+        <section class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-7 shadow-sm transition-all-custom">
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+                <!-- Limit Goal Display & Quick Edit -->
+                <div>
+                    <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Objetivo Diario</span>
+                    <div class="flex items-baseline space-x-2 mt-0.5">
+                        <span id="goal-display" class="text-3xl font-extrabold text-slate-900 tracking-tight">2000</span>
+                        <span class="text-sm font-medium text-slate-500">kcal</span>
+                        <button id="btn-edit-goal" onclick="toggleEditGoal(true)" class="ml-2 text-slate-400 hover:text-brand-600 text-sm transition-colors p-1" title="Editar objetivo">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Goal Editor Inline Form (Hidden by default) -->
+                <div id="goal-edit-form" class="hidden flex items-center space-x-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                    <input type="number" id="input-goal" min="500" max="10000" class="w-28 px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-brand-500" placeholder="2000">
+                    <button onclick="saveGoal()" class="bg-brand-600 hover:bg-brand-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm">
+                        Guardar
+                    </button>
+                    <button onclick="toggleEditGoal(false)" class="text-slate-400 hover:text-slate-600 px-2 py-1.5 text-xs font-medium">
+                        Cancelar
+                    </button>
+                </div>
+
+                <!-- Date selector filter -->
+                <div class="flex items-center gap-2 self-start sm:self-auto">
+                    <label for="filter-date" class="text-xs font-medium text-slate-500">Ver día:</label>
+                    <input type="date" id="filter-date" onchange="changeFilterDate(this.value)" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer">
+                </div>
+            </div>
+
+            <!-- Stats Metrics Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 my-6">
+                <!-- Consumed -->
+                <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-100">
+                    <div class="flex items-center space-x-2 text-slate-500 mb-1">
+                        <i class="fa-solid fa-utensils text-xs text-amber-500"></i>
+                        <span class="text-xs font-medium uppercase tracking-wider">Consumidas</span>
+                    </div>
+                    <p class="text-2xl font-bold text-slate-800"><span id="consumed-display">0</span> <span class="text-xs font-normal text-slate-500">kcal</span></p>
+                </div>
+
+                <!-- Remaining -->
+                <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-100">
+                    <div class="flex items-center space-x-2 text-slate-500 mb-1">
+                        <i id="remaining-icon" class="fa-solid fa-chart-pie text-xs text-brand-500"></i>
+                        <span class="text-xs font-medium uppercase tracking-wider">Restantes</span>
+                    </div>
+                    <p class="text-2xl font-bold text-slate-800"><span id="remaining-display">2000</span> <span class="text-xs font-normal text-slate-500">kcal</span></p>
+                </div>
+
+                <!-- Percentage -->
+                <div class="col-span-2 sm:col-span-1 bg-slate-50/70 p-4 rounded-xl border border-slate-100 flex flex-col justify-center">
+                    <div class="flex items-center justify-between text-slate-500 mb-1">
+                        <span class="text-xs font-medium uppercase tracking-wider">Progreso</span>
+                        <span id="percentage-badge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">0%</span>
+                    </div>
+                    <p id="status-text" class="text-xs font-medium text-slate-500 mt-1">Dentro del límite diario</p>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="space-y-2">
+                <div class="w-full bg-slate-100 h-4 rounded-full overflow-hidden p-0.5 border border-slate-200/50">
+                    <div id="progress-bar" class="h-full rounded-full bg-brand-500 transition-all duration-500 ease-out" style="width: 0%"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ADD LOG ENTRY SECTION -->
+        <section class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-7 shadow-sm">
+            <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-circle-plus text-brand-500"></i>
+                Registrar Ingesta
+            </h2>
+
+            <form id="add-calorie-form" onsubmit="handleAddEntry(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                <!-- Food detail -->
+                <div class="sm:col-span-5">
+                    <label for="input-detail" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Detalle / Alimento</label>
+                    <input type="text" id="input-detail" required placeholder="Ej: 2 galletitas de chocolate" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+                </div>
+
+                <!-- Calories -->
+                <div class="sm:col-span-3">
+                    <label for="input-calories" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Calorías (kcal)</label>
+                    <input type="number" id="input-calories" min="1" max="5000" required placeholder="Ej: 130" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+                </div>
+
+                <!-- Date & Time -->
+                <div class="sm:col-span-4">
+                    <label for="input-datetime" class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">Fecha y Hora</label>
+                    <input type="datetime-local" id="input-datetime" required class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all">
+                </div>
+
+                <!-- Submit button -->
+                <div class="sm:col-span-12 flex justify-end mt-2">
+                    <button type="submit" class="w-full sm:w-auto bg-brand-600 hover:bg-brand-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-md shadow-brand-500/20 hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span>Agregar Registro</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- LOG LIST SECTION -->
+        <section class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-7 shadow-sm">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-slate-500"></i>
+                    Registros del Día
+                </h2>
+                <span id="log-count" class="text-xs bg-slate-100 text-slate-600 font-semibold px-2.5 py-1 rounded-full border border-slate-200">0 ítems</span>
+            </div>
+
+            <!-- List container -->
+            <div id="logs-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                <!-- Dynamic Content Loaded Here -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden py-10 text-center">
+                <div class="w-16 h-16 bg-slate-100 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <i class="fa-solid fa-plate-wheat text-2xl"></i>
+                </div>
+                <p class="text-slate-500 text-sm font-medium">No hay registros de ingesta para este día.</p>
+                <p class="text-slate-400 text-xs mt-1">Usa el formulario arriba para agregar lo que has consumido.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Custom Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-brand-500"></i>
+        <span id="toast-message" class="text-sm font-medium">Acción completada</span>
+    </div>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const STORAGE_KEY_LOGS = 'calorie_tracker_logs_v1';
+        const STORAGE_KEY_GOAL = 'calorie_tracker_goal_v1';
+
+        let dailyGoal = 2000;
+        let calorieLogs = [];
+        let selectedDateStr = ''; // Format YYYY-MM-DD
+
+        // --- INITIALIZATION ---
+        window.onload = function() {
+            // Set current default date filter to today YYYY-MM-DD
+            const now = new Date();
+            selectedDateStr = formatDateToLocalYYYYMMDD(now);
+            
+            document.getElementById('filter-date').value = selectedDateStr;
+            document.getElementById('header-date').innerText = formatDateToReadable(selectedDateStr);
+
+            // Set current default datetime input for new entries
+            resetDateTimeInput();
+
+            // Load LocalStorage
+            loadGoalFromStorage();
+            loadLogsFromStorage();
+
+            // Render view
+            renderApp();
+        };
+
+        // --- HELPER FUNCTIONS FOR DATES ---
+        function formatDateToLocalYYYYMMDD(d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDateToReadable(dateStr) {
+            if (!dateStr) return '';
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function formatDateTimeToLocalISO(d) {
+            const pad = (num) => String(num).padStart(2, '0');
+            const year = d.getFullYear();
+            const month = pad(d.getMonth() + 1);
+            const day = pad(d.getDate());
+            const hours = pad(d.getHours());
+            const minutes = pad(d.getMinutes());
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function resetDateTimeInput() {
+            const datetimeInput = document.getElementById('input-datetime');
+            datetimeInput.value = formatDateTimeToLocalISO(new Date());
+        }
+
+        // --- STORAGE HANDLERS ---
+        function loadGoalFromStorage() {
+            const savedGoal = localStorage.getItem(STORAGE_KEY_GOAL);
+            if (savedGoal && !isNaN(parseInt(savedGoal))) {
+                dailyGoal = parseInt(savedGoal);
+            } else {
+                dailyGoal = 2000;
+            }
+            document.getElementById('goal-display').innerText = dailyGoal;
+            document.getElementById('input-goal').value = dailyGoal;
+        }
+
+        function saveGoalToStorage(newGoal) {
+            dailyGoal = newGoal;
+            localStorage.setItem(STORAGE_KEY_GOAL, dailyGoal.toString());
+        }
+
+        function loadLogsFromStorage() {
+            const saved = localStorage.getItem(STORAGE_KEY_LOGS);
+            if (saved) {
+                try {
+                    calorieLogs = JSON.parse(saved);
+                } catch (e) {
+                    console.error("Error al cargar registros desde LocalStorage", e);
+                    calorieLogs = [];
+                }
+            } else {
+                calorieLogs = [];
+            }
+        }
+
+        function saveLogsToStorage() {
+            localStorage.setItem(STORAGE_KEY_LOGS, JSON.stringify(calorieLogs));
+        }
+
+        // --- GOAL EDITING LOGIC ---
+        function toggleEditGoal(show) {
+            const displayGroup = document.getElementById('btn-edit-goal').parentElement;
+            const editForm = document.getElementById('goal-edit-form');
+            if (show) {
+                editForm.classList.remove('hidden');
+                document.getElementById('input-goal').focus();
+            } else {
+                editForm.classList.add('hidden');
+            }
+        }
+
+        function saveGoal() {
+            const val = parseInt(document.getElementById('input-goal').value);
+            if (!val || val < 100 || val > 20000) {
+                showToast("Por favor ingresa un objetivo válido (100 - 20000 kcal)", "error");
+                return;
+            }
+
+            saveGoalToStorage(val);
+            document.getElementById('goal-display').innerText = val;
+            toggleEditGoal(false);
+            renderApp();
+            showToast("Objetivo diario actualizado");
+        }
+
+        // --- FILTER DATE LOGIC ---
+        function changeFilterDate(newDateStr) {
+            if (!newDateStr) return;
+            selectedDateStr = newDateStr;
+            document.getElementById('header-date').innerText = formatDateToReadable(selectedDateStr);
+            renderApp();
+        }
+
+        // --- LOG ENTRY ADD & DELETE ---
+        function handleAddEntry(event) {
+            event.preventDefault();
+
+            const detailInput = document.getElementById('input-detail');
+            const caloriesInput = document.getElementById('input-calories');
+            const datetimeInput = document.getElementById('input-datetime');
+
+            const detail = detailInput.value.trim();
+            const calories = parseInt(caloriesInput.value);
+            const datetimeVal = datetimeInput.value;
+
+            if (!detail || isNaN(calories) || calories <= 0 || !datetimeVal) {
+                showToast("Por favor completa todos los campos correctamente", "error");
+                return;
+            }
+
+            // Create log JSON object
+            const newEntry = {
+                id: 'log_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                datetime: datetimeVal, // e.g. "2026-11-03T14:30"
+                date: datetimeVal.split('T')[0], // YYYY-MM-DD
+                detail: detail,
+                calories: calories
+            };
+
+            calorieLogs.unshift(newEntry); // Put newest first
+            saveLogsToStorage();
+
+            // If entry date matches currently selected filter date, update UI
+            if (newEntry.date !== selectedDateStr) {
+                // Switch filter to the date of the added item
+                selectedDateStr = newEntry.date;
+                document.getElementById('filter-date').value = selectedDateStr;
+                document.getElementById('header-date').innerText = formatDateToReadable(selectedDateStr);
+            }
+
+            // Clear inputs
+            detailInput.value = '';
+            caloriesInput.value = '';
+            resetDateTimeInput();
+
+            renderApp();
+            showToast("Registro agregado correctamente");
+        }
+
+        function deleteEntry(id) {
+            calorieLogs = calorieLogs.filter(item => item.id !== id);
+            saveLogsToStorage();
+            renderApp();
+            showToast("Registro eliminado");
+        }
+
+        // --- RENDER APP & DYNAMIC UI ---
+        function renderApp() {
+            // 1. Filter logs for the selected date
+            const filteredLogs = calorieLogs.filter(item => item.date === selectedDateStr);
+
+            // 2. Calculate consumed calories
+            const totalConsumed = filteredLogs.reduce((acc, curr) => acc + curr.calories, 0);
+            const remaining = dailyGoal - totalConsumed;
+            const percentage = Math.round((totalConsumed / dailyGoal) * 100);
+
+            // 3. Update DOM Stats Metrics
+            document.getElementById('consumed-display').innerText = totalConsumed.toLocaleString();
+            
+            const remainingDisplay = document.getElementById('remaining-display');
+            remainingDisplay.innerText = remaining.toLocaleString();
+
+            const percentageBadge = document.getElementById('percentage-badge');
+            percentageBadge.innerText = `${percentage}%`;
+
+            // 4. Update Progress Bar & Visual Warnings
+            const progressBar = document.getElementById('progress-bar');
+            const statusText = document.getElementById('status-text');
+            const remainingIcon = document.getElementById('remaining-icon');
+
+            // Clamp progress bar display to 100% max width visually, but show true color status
+            const barWidth = Math.min(percentage, 100);
+            progressBar.style.width = `${barWidth}%`;
+
+            // Color coding logic based on consumption
+            if (percentage < 85) {
+                // Normal Green
+                progressBar.className = "h-full rounded-full bg-brand-500 transition-all duration-500 ease-out";
+                percentageBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800";
+                statusText.innerText = "Dentro del límite diario recomendado";
+                statusText.className = "text-xs font-medium text-slate-500 mt-1";
+                remainingIcon.className = "fa-solid fa-chart-pie text-xs text-brand-500";
+            } else if (percentage <= 100) {
+                // Warning Amber/Orange
+                progressBar.className = "h-full rounded-full bg-amber-500 transition-all duration-500 ease-out";
+                percentageBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800";
+                statusText.innerText = "Cerca del límite de calorías diarias";
+                statusText.className = "text-xs font-medium text-amber-600 mt-1";
+                remainingIcon.className = "fa-solid fa-triangle-exclamation text-xs text-amber-500";
+            } else {
+                // Danger Red (Exceeded)
+                progressBar.className = "h-full rounded-full bg-rose-500 transition-all duration-500 ease-out";
+                percentageBadge.className = "text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800";
+                statusText.innerText = `Límite excedido por Math.abs(remaining).toLocaleString() kcal!`;
+                statusText.innerText = `¡Límite superado por ${Math.abs(remaining).toLocaleString()} kcal!`;
+                statusText.className = "text-xs font-bold text-rose-600 mt-1";
+                remainingIcon.className = "fa-solid fa-circle-exclamation text-xs text-rose-500";
+            }
+
+            // 5. Render Log List
+            const logsContainer = document.getElementById('logs-list');
+            const emptyState = document.getElementById('empty-state');
+            const logCountBadge = document.getElementById('log-count');
+
+            logCountBadge.innerText = `${filteredLogs.length} ${filteredLogs.length === 1 ? 'ítem' : 'ítems'}`;
+
+            if (filteredLogs.length === 0) {
+                logsContainer.innerHTML = '';
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                
+                logsContainer.innerHTML = filteredLogs.map(item => {
+                    // Extract time format (HH:MM)
+                    let timeStr = '';
+                    if (item.datetime && item.datetime.includes('T')) {
+                        timeStr = item.datetime.split('T')[1];
+                    }
+
+                    return `
+                        <div class="flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/60 rounded-xl transition-all group">
+                            <div class="flex items-center space-x-3 min-w-0 pr-2">
+                                <div class="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 flex-shrink-0">
+                                    <i class="fa-solid fa-bowl-food text-xs"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-slate-800 truncate">${escapeHTML(item.detail)}</p>
+                                    <p class="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                                        <i class="fa-regular fa-clock text-[10px]"></i>
+                                        <span>${timeStr || 'S/H'}</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center space-x-3 flex-shrink-0">
+                                <span class="text-sm font-bold text-slate-900 bg-white border border-slate-200 px-3 py-1 rounded-lg">
+                                    +${item.calories} <span class="text-[10px] font-normal text-slate-500">kcal</span>
+                                </span>
+                                <button onclick="deleteEntry('${item.id}')" class="text-slate-400 hover:text-rose-600 p-2 rounded-lg hover:bg-rose-50 transition-colors" title="Eliminar registro">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // --- UTILS ---
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        let toastTimeout;
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMessage.innerText = message;
+
+            if (type === 'error') {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-brand-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
